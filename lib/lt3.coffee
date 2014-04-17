@@ -916,29 +916,30 @@ switch command
                   slug: page_slug
                 }, (err, object) ->
                   throw err if err
-                  exit('object already exists at this location') if object
-
-                console.log 'check slug', page_slug.trim().length
-                if page_slug.trim().length > 0
-                  new_object = {
-                    collection: new_collection
-                    data: page.get('data').val()
-                    password: ''
-                    seo:
-                      title: ''
-                      description: ''
-                      keywords: ''
-                      image: ''
-                    site_id: new_site.get('_id').val()
-                    slug: page_slug
-                    tags: [new_object_type, page_slug]
-                    type: new_object_type
-                  }
-                  db.get('objects').insert new_object, (err, object) ->
-                    throw err if err
-                    log "object added to #{site_slug}"
-                    log object
-                    exit()
+                  if object
+                    log 'object already exists at this location', page_slug
+                  else
+                    console.log 'check slug', page_slug.trim().length
+                    if page_slug.trim().length > 0
+                      new_object = {
+                        collection: new_collection
+                        data: page.get('data').val()
+                        password: ''
+                        seo:
+                          title: ''
+                          description: ''
+                          keywords: ''
+                          image: ''
+                        site_id: new_site.get('_id').val()
+                        slug: page_slug
+                        tags: [new_object_type, page_slug]
+                        type: new_object_type
+                      }
+                      db.get('objects').insert new_object, (err, object) ->
+                        throw err if err
+                        log "object added to #{site_slug}"
+                        log object
+                        exit()
 
  
   when 'add:page'
