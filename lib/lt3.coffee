@@ -894,33 +894,35 @@ switch command
         throw err if err
         old_entity_id = old_entity.get('_id').val()
         console.log 'found entity with id: ', old_entity_id
+
         db.get('apps').findOne {'package.id': old_app_package}, (err, old_app) ->
+          throw err if err
           old_app_id = old_app.get('_id').val()
           console.log 'found app package with id:', old_app_id
 
           db.get('sites').findOne {'slug': new_site_slug}, (err, new_site) ->
+            throw error if err
             new_site_id = new_site.get('_id').val()
             console.log 'found new site with id:', new_site_id
 
             criteria = {'entity._id': old_entity_id, 'app._id': old_app_id}
-            db.get('pages').find criteria, (err, pages) =>
+            db.get('pages').find criteria, {limit: 200}, (err, pages) =>
               throw err if err
-
-              for page in pages
+              page2object = (page, callback) ->
                 page_slug = page.get('slug').val()
                 console.log 'found old app slug', page_slug
                 
-                # make sure page location isn't taken
-                db.get('objects').findOne {
-                  'site_id': new_site.get('_id').val()
-                  slug: page_slug
-                }, (err, object) ->
-                  throw err if err
-                  if object
-                    log 'object already exists at this location', page_slug
-                  else
-                    console.log 'check slug', page_slug.trim().length
-                    if page_slug.trim().length > 0
+                if page_slug.trim().length > 0
+                  # make sure page location isn't taken
+                  db.get('objects').findOne {
+                    'site_id': new_site_id
+                    slug: page.get('slug').val()
+                  }, (err, object) ->
+                    throw err if err
+                    if object
+                      log "object already exists at this location #{page_slug}"
+                      callback()
+                    else
                       new_object = {
                         collection: new_collection
                         data: page.get('data').val()
@@ -930,7 +932,7 @@ switch command
                           description: ''
                           keywords: ''
                           image: ''
-                        site_id: new_site.get('_id').val()
+                        site_id: new_site_id
                         slug: page_slug
                         tags: [new_object_type, page_slug]
                         type: new_object_type
@@ -939,7 +941,12 @@ switch command
                         throw err if err
                         log "object added to #{site_slug}"
                         log object
-                        exit()
+                        callback()
+                 else
+                   callback()
+              async.eachSeries pages, page2object, (err) ->
+                throw err if err
+                exit()
 
  
   when 'add:page'
