@@ -50,6 +50,7 @@ where <command> [command-specific-options] is one of:
   v1:add:app <site> <app> <id>@<version>  add an app package to a site
   v1:add:page <site> <app> <page> <type>  add a new page to a site's app
   v1:create <site>                        create your own website
+  migrate:app2object <entity> <app> <site> <object> migrate v1 apps to v2 objects
 """
 
 
@@ -874,7 +875,72 @@ switch command
               db.get('objects').insert data , (err , obj) ->
                 throw err if err
 
+  # migrate apps from entity to objects in site
+  when 'migrate:app2object'
+    throw "need entity id to clone" unless args[0]
+    throw "need app name" unless args[1]
+    throw "need site name" unless args[2]
+    throw "need object collection" unless args[3]
+    throw "need object name" unless args[4]
+    old_entity_slug = args[0]
+    old_app_package = args[1]
+    new_site_slug = args[2]
+    new_collection = args[3]
+    new_object_type = args[4]
 
+    ## get old site
+    getDB (db) ->
+      db.get('entities').findOne {'slug': old_entity_slug}, (err, old_entity) ->
+        throw err if err
+        old_entity_id = old_entity.get('_id').val()
+        console.log 'found entity with id: ', old_entity_id
+        db.get('apps').findOne {'package.id': old_app_package}, (err, old_app) ->
+          old_app_id = old_app.get('_id').val()
+          console.log 'found app package with id:', old_app_id
+
+          db.get('sites').findOne {'slug': new_site_slug}, (err, new_site) ->
+            new_site_id = new_site.get('_id').val()
+            console.log 'found new site with id:', new_site_id
+
+            criteria = {'entity._id': old_entity_id, 'app._id': old_app_id}
+            db.get('pages').find criteria, (err, pages) =>
+              throw err if err
+
+              for page in pages
+                page_slug = page.get('slug').val()
+                console.log 'found old app slug', page_slug
+                
+                # make sure page location isn't taken
+                db.get('objects').findOne {
+                  'site_id': new_site.get('_id').val()
+                  slug: page_slug
+                }, (err, object) ->
+                  throw err if err
+                  exit('object already exists at this location') if object
+
+                console.log 'check slug', page_slug.trim().length
+                if page_slug.trim().length > 0
+                  new_object = {
+                    collection: new_collection
+                    data: page.get('data').val()
+                    password: ''
+                    seo:
+                      title: ''
+                      description: ''
+                      keywords: ''
+                      image: ''
+                    site_id: new_site.get('_id').val()
+                    slug: page_slug
+                    tags: [new_object_type, page_slug]
+                    type: new_object_type
+                  }
+                  db.get('objects').insert new_object, (err, object) ->
+                    throw err if err
+                    log "object added to #{site_slug}"
+                    log object
+                    exit()
+
+ 
   when 'add:page'
     # parse arguments
     page_type = args[0]
